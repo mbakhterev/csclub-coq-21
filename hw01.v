@@ -98,6 +98,7 @@ Definition predn (n : nat) : nat :=
 
 Definition dec2 (n : nat) : nat := predn (predn n).
 
+Definition zero  : nat := O.
 Definition one   : nat := (S zero).
 Definition two   : nat := (S one).
 Definition three : nat := (S two).
@@ -203,7 +204,7 @@ Compute less two three.
 Compute less three three.
 Compute less four three.
 
-Fixpoint divn_loop (c m n : nat) {struct c} : nat :=
+(* Fixpoint divn_loop (c m n : nat) {struct c} : nat :=
   match c with
   | O => O
   | S k => 
@@ -217,6 +218,20 @@ Definition divn (m n : nat) : nat :=
   match n with
   | O => O
   | S k => divn_loop m m n
+  end. *)
+
+Fixpoint divn_loop (r k m n : nat) {struct m} : nat :=
+  match k, m with
+  | O, O => S r
+  | S k', O => r
+  | O, S m' => divn_loop (S r) (predn n) m' n
+  | S k', S m' => divn_loop r k' m' n
+  end.
+
+Definition divn (m n : nat) : nat :=
+  match n with
+  | O => O
+  | S k => divn_loop O n m n
   end.
 
 Compute eqn (divn (muln ten ten) ten) ten.
@@ -225,5 +240,6 @@ Compute eqn (divn (muln nine nine) seven) (addn one ten).
 Compute eqn (divn (muln six seven) six) seven.
 Compute eqn O (divn ten zero).
 Compute eqn O (divn (muln nine nine) (muln ten ten)).
+Compute eqn ten (divn ten one).
 
 End My.
