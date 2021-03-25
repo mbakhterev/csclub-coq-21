@@ -2,6 +2,9 @@ From mathcomp Require Import ssreflect.
 From mathcomp Require Import ssrnat.
 From mathcomp Require Import ssrbool eqtype ssrfun seq.
 
+Unset Printing Notations.
+Set Printing Notations.
+
 (** * Arithmetic expression language *)
 
 
@@ -73,23 +76,21 @@ Check [[
 (* Make sure the following are parsed as expected.
    What query can you use to do that? *)
 
-Check eq_refl: 2 = 2.
+Check erefl: 2 = 2.
 
-Check eq_refl: [[ ((0 + 1) + 2) + 3 ]] = Plus (Plus (Plus (Const 0) (Const 1)) (Const 2)) (Const 3).
+Check erefl: [[ ((0 + 1) + 2) + 3 ]] = Plus (Plus (Plus (Const 0) (Const 1)) (Const 2)) (Const 3).
 
-Check eq_refl: [[ 0 + (1 + (2 + 3)) ]] = Plus (Const 0) (Plus (Const 1) (Plus (Const 2) (Const 3))).
+Check erefl: [[ 0 + (1 + (2 + 3)) ]] = Plus (Const 0) (Plus (Const 1) (Plus (Const 2) (Const 3))).
 
-Check eq_refl: [[ 0 * 1 + 2 ]] = Plus (Mult (Const 0) (Const 1)) (Const 2).
+Check erefl: [[ 0 * 1 + 2 ]] = Plus (Mult (Const 0) (Const 1)) (Const 2).
 
-Check eq_refl: [[ 0 + 1 * 2 ]] = Plus (Const 0) (Mult (Const 1) (Const 2)).
+Check erefl: [[ 0 + 1 * 2 ]] = Plus (Const 0) (Mult (Const 1) (Const 2)).
 
-Check eq_refl: [[ (0 + 1) * 2 ]] = Mult (Plus (Const 0) (Const 1)) (Const 2).
+Check erefl: [[ (0 + 1) * 2 ]] = Mult (Plus (Const 0) (Const 1)) (Const 2).
 
 (** Write an evaluator for the expression language which fixes its semantics.
 Basically, the semantics of the expression language should be the same as
 the corresponding Coq functions `addn`, `subn`, `muln`. *)
-
-Print addn.
 
 Fixpoint eval (e : expr) : nat :=
   match e with
@@ -159,10 +160,6 @@ And the type of stacks like so:
     Definition stack := seq nat.
 *)
 
-Check [:: 1].
-Compute [:: 1; 2; 3].
-Compute [::].
-
 Definition prog := seq instr.
 Definition stack := seq nat.
 
@@ -170,43 +167,51 @@ Definition stack := seq nat.
  program (list of instructions) and the current stack, and processes the program
  instruction-by-instruction, returning the final stack. *)
 
+Reset run.
+
 Fixpoint run (p : prog) (s : stack) : stack :=
   match p, s with
   | [::], _ => s
   | (Push n) :: r, _ => run r (n :: s)
-  | Add :: r, n :: m :: ns => run r ((addn n m) :: ns)
-  | Sub :: r, n :: m :: ns => run r ((subn n m) :: ns)
-  | Mul :: r, n :: m :: ns => run r ((muln n m) :: ns)
+  | Add :: r, n :: m :: ns => run r ((addn m n) :: ns)
+  | Sub :: r, n :: m :: ns => run r ((subn m n) :: ns)
+  | Mul :: r, n :: m :: ns => run r ((muln m n) :: ns)
   | _, _ => [::]
   end.
 
 (** Unit tests: *)
 
-Compute run [:: Push 0] [::].
-Compute run [:: Push 0; Push 1; Push 2; Add; Push 3; Push 4; Mul; Push 5; Push 6; Sub] [::].
-
-
 Check erefl :
-  run [:: Push 0; Push 1; Push 2; Add; Push 3; Push 4; Mul; Push 5; Push 6; Sub] [::]
-    = [:: 0; 3; 12; 1].
+  run [:: Push 0; Push 1; Push 2; Add; Push 3; Push 4; Mul; Push 10; Push 6; Sub] [::]
+    = rev [:: 0; 3; 12; 4].
 
-...
-
+Check erefl : run [:: Push 1; Push 2; Push 3; Push 4; Push 5; Push 6; Mul; Mul; Mul; Mul; Mul] [::] = [:: 720].
 
 (** Now, implement a compiler from "high-level" expressions to "low-level" stack
 programs and do some unit tests. *)
+
 Fixpoint compile (e : expr) : prog :=
-  ...
+  match e with
+  | Const n => [:: Push n]
+  | Plus n m => (compile n) ++ (compile m) ++ [:: Add]
+  | Minus n m => (compile n) ++ (compile m) ++ [:: Sub]
+  | Mult n m => (compile n) ++ (compile m) ++ [:: Mul]
+  end.
 
 (** Do some unit tests *)
-Check erefl :
-  compile [[ ... expression ... ]] = [:: ... stack-program ].
-...
+
+Compute compile [[ 10 - 20 ]].
+
+Check erefl : compile [[ 20 - 10 ]] = [:: Push 20; Push 10; Sub ].
+
+Compute eval [[ 10 + 20 * 30 - 50 ]].
+
+Check erefl : run (compile [[ 10 + 20 * 30 - 50 ]]) [::] = [:: eval [[ 10 + 20 * 30 - 50 ]]].
+
 (* Some ideas for unit tests:
   - check that `run (compile e) [::] = [:: eval e]`, where `e` is an arbitrary expression;
   - check that `compile` is an injective function
 *)
-
 
 (** Optional exercise: decompiler *)
 
@@ -214,14 +219,37 @@ Check erefl :
 expression *)
 (* Hint: you might want to introduce a recursive helper function `decompile'` to
  reuse it for `decompile`. *)
-Definition decompile (p : prog) : option expr :=
-  ...
+
+Reset decomp.
+
+Fixpoint decomp (s : seq expr) (p : prog) : option expr :=
+  match p, s with
+  | (Push n) :: r, _ => decomp (Const n :: s) r
+  | Add :: r, m :: n :: t => decomp (Plus n m :: t) r
+  | Add :: _, _ => None
+  | Mul :: r, m :: n :: t => decomp (Mult n m :: t) r
+  | Mul :: _, _ => None
+  | Sub :: r, m :: n :: t => decomp (Minus n m :: t) r
+  | Sub :: _, _ => None
+  | [::], [:: r] => Some r
+  | [::], _ => None
+  end.
+
+Definition decompile (p : prog) : option expr := decomp [::] p.
 
 (** Unit tests *)
-Check erefl :
-  decompile [:: ... stack-program ] = some [[ expression ]].
-...
+
+Compute decompile [:: Push 10; Push 1; Push 0; Sub; Mul].
+
+Check erefl: decompile [:: Push 10; Push 1; Push 0; Sub; Mul ] = Some [[ 10 * (1 - 0) ]].
+Check erefl: decompile [:: Push 10; Push 20; Push 30; Mul; Add; Push 50; Sub] = Some [[ 10 + 20 * 30 - 50 ]].
+Check erefl: decompile [:: Push 10; Push 20; Push 30; Mul] = None.
 
 (* Some ideas for unit tests:
   - check that `decompile (compile e) = Some e`, where `e` is an arbitrary expression
 *)
+
+Check erefl: decompile (compile [[ 10 + 20 * 30 - 50 ]]) = Some [[ 10 + 20 * 30 - 50 ]].
+
+Check erefl: decompile (compile [[ 10 * 20 * (40 - 1) * 50 + 40 * 30 - 7 ]])
+  = Some [[ 10 * 20 * (40 - 1) * 50 + 40 * 30 - 7 ]].
