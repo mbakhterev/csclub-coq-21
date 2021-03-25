@@ -1,5 +1,6 @@
-From mathcomp Require Import ssreflect ssrfun ssrbool ssrnat seq.
-
+From mathcomp Require Import ssreflect.
+From mathcomp Require Import ssrnat.
+From mathcomp Require Import ssrbool eqtype ssrfun seq.
 
 (** * Arithmetic expression language *)
 
@@ -15,12 +16,12 @@ reuse it later. *)
 (** Define is a simple language of arithmetic expressions consisting of
 constants (natural numbers) and arbitrarily nested additions, subtractions and
 multiplications *)
+
 Inductive expr : Type :=
 | Const of nat
 | Plus of expr & expr
-| Minus of ...
-| Mult of ...
-.
+| Minus of expr & expr
+| Mult of expr & expr.
 
 (** Let us define a special notation for our language.
     We reuse the standard arithmetic notations here, but only inside
@@ -28,67 +29,89 @@ Inductive expr : Type :=
 
 (* This means we declare `expr` as an identifier referring to a 'notation
 entry' *)
+
 Declare Custom Entry expr.
+
 (* And we let the parser know `expr` is associated with double brackets, so
 inside double brackets the parser will use notations associated with custom
 `expr` entries *)
+
 Notation "'[[' e ']]'" := e (e custom expr at level 0).
 
 (* Numerals can be used without wrapping those in the `Const` constructor *)
+
 Notation "x" :=
   (Const x)
     (in custom expr at level 0, x bigint).
 
 Notation "( x )" := x (in custom expr, x at level 2).
+
 Notation "x + y" := (Plus x y) (in custom expr at level 2, left associativity).
 
 (* Define notations for subtraction and multiplication.
    Hint: lower level means higher priority.
    Your notations should start with `in custom expr` as above. *)
-Notation "x - y" := ...
-Notation "x * y" := ...
+
+Notation "x - y" := (Minus x y) (in custom expr at level 2, left associativity).
+
+Notation "x * y" := (Mult x y) (in custom expr at level 1, left associativity).
 
 (** Here is how we write Plus (Const 0) (Plus (Const 1) (Const 2)) *)
+
 Check [[
           0 + (1 + 2)
       ]].
+
+Check [[ 0 + 1 - 2 * 3 ]].
+
 (** And this is Plus (Plus (Const 0) (Const 1)) (Const 2) *)
+
 Check [[
           (0 + 1) + 2
       ]].
 
 (* Make sure the following are parsed as expected.
    What query can you use to do that? *)
-Check [[
-          ((0 + 1) + 2) + 3
-      ]].
-Check [[
-          0 + (1 + (2 + 3))
-      ]].
-Check [[
-          0 * 1 + 2
-      ]].
-Check [[
-          0 + 1 * 2
-      ]].
+
+Check eq_refl: 2 = 2.
+
+Check eq_refl: [[ ((0 + 1) + 2) + 3 ]] = Plus (Plus (Plus (Const 0) (Const 1)) (Const 2)) (Const 3).
+
+Check eq_refl: [[ 0 + (1 + (2 + 3)) ]] = Plus (Const 0) (Plus (Const 1) (Plus (Const 2) (Const 3))).
+
+Check eq_refl: [[ 0 * 1 + 2 ]] = Plus (Mult (Const 0) (Const 1)) (Const 2).
+
+Check eq_refl: [[ 0 + 1 * 2 ]] = Plus (Const 0) (Mult (Const 1) (Const 2)).
+
+Check eq_refl: [[ (0 + 1) * 2 ]] = Mult (Plus (Const 0) (Const 1)) (Const 2).
 
 (** Write an evaluator for the expression language which fixes its semantics.
 Basically, the semantics of the expression language should be the same as
 the corresponding Coq functions `addn`, `subn`, `muln`. *)
+
+Print addn.
+
 Fixpoint eval (e : expr) : nat :=
-  ...
+  match e with
+  | Const n => n
+  | Plus n m => addn (eval n) (eval m)
+  | Minus n m => subn (eval n) (eval m)
+  | Mult n m => muln (eval n) (eval m)
+  end.
 
 (** Some unit tests *)
+
 (** We haven't discussed in depth what `erefl` means yet.
     But for now, let's just assume if the following lines
     typecheck then the equalities below hold *)
+
 Check erefl : eval [[ 0 - 4 ]] = 0.
 Check erefl : eval [[ 0 + (2 - 1) ]] = 1.
 Check erefl : eval [[ (0 + 1) + 2 ]] = 3.
 Check erefl : eval [[ 2 + 2 * 2 ]] = 6.
 Check erefl : eval [[ (2 + 2) * 2 ]] = 8.
-...
-
+Check erefl : eval [[ 10 * 10 * 10 * 10 - 1 ]] = 9999.
+Check erefl : eval [[ 10 * 10 * 10 - 1 ]] = 999.
 
 (** * Compiling arithmetic expressions to a stack language *)
 
@@ -136,16 +159,37 @@ And the type of stacks like so:
     Definition stack := seq nat.
 *)
 
+Check [:: 1].
+Compute [:: 1; 2; 3].
+Compute [::].
+
+Definition prog := seq instr.
+Definition stack := seq nat.
 
 (** The [run] function is an interpreter for the stack language. It takes a
  program (list of instructions) and the current stack, and processes the program
  instruction-by-instruction, returning the final stack. *)
+
 Fixpoint run (p : prog) (s : stack) : stack :=
-  ...
+  match p, s with
+  | [::], _ => s
+  | (Push n) :: r, _ => run r (n :: s)
+  | Add :: r, n :: m :: ns => run r ((addn n m) :: ns)
+  | Sub :: r, n :: m :: ns => run r ((subn n m) :: ns)
+  | Mul :: r, n :: m :: ns => run r ((muln n m) :: ns)
+  | _, _ => [::]
+  end.
 
 (** Unit tests: *)
+
+Compute run [:: Push 0] [::].
+Compute run [:: Push 0; Push 1; Push 2; Add; Push 3; Push 4; Mul; Push 5; Push 6; Sub] [::].
+
+
 Check erefl :
-  run [:: ... stack-program ...] [::] = [:: ... stack-of-numbers ...].
+  run [:: Push 0; Push 1; Push 2; Add; Push 3; Push 4; Mul; Push 5; Push 6; Sub] [::]
+    = [:: 0; 3; 12; 1].
+
 ...
 
 
