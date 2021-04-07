@@ -176,16 +176,25 @@ end.
 (** * ====== Optional exercises (feel free to skip) ====== *)
 
 (** * Exercise (optional) *)
+
+
+(* Я сам написал это решение, но, чёрт побери, я не понимаю, что всё это означает!
+   Я понимаю даже, как это работает. Но что означает моё доказательство??? *)
+
 Definition J :
   forall (A : Type) (P : forall (x y : A), x = y -> Prop),
     (forall x : A, P x x erefl) ->
     forall x y (p : x = y), P x y p
-:= replace_with_your_solution_here.
-
+:= fun A P Q x y p => 
+match p in (eq _ z) return (P x z p) with
+| erefl => Q x
+end.
 
 (** * Exercise (optional): *)
-Definition addnC : commutative addn
-:= replace_with_your_solution_here.
+
+Definition addnC : commutative addn :=
+fix ih x y :=
+_ .
 
 
 (** * Exercise (optional):
