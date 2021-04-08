@@ -1,8 +1,11 @@
 From mathcomp Require Import ssreflect ssrfun ssrbool ssrnat eqtype.
+Import Specif.
+
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
+Unset Printing Notations.
 
 (* An (unsound) placeholder so that the whole file typechecks.
 Please replace it with your proof term. Your solutions may not
@@ -51,6 +54,7 @@ Variables (D : Type)
 "if R is a symmetric and transitive relation
 then each element x which is related to some
 element y is also related to itself" *)
+
 Definition refl_if :
   (forall x y, R x y -> R y x) ->
   (forall x y z, R x y -> R y z -> R x z) ->
@@ -60,8 +64,10 @@ Definition refl_if :
 
 End Symmetric_Transitive_Relation.
 
+Section Exercises_Natural.
 
 (** * Exercise *)
+
 Reset pair_inj.
 Definition pair_inj A B (a1 a2 : A) (b1 b2 : B) :
   (a1, b1) = (a2, b2) -> (a1 = a2) /\ (b1 = b2)
@@ -71,11 +77,8 @@ Definition pair_inj A B (a1 a2 : A) (b1 b2 : B) :
    end.
 
 
-Print pair.
-Compute (fst (10, 20)).
-Unset Printing Notations.
-
 (** * Exercise *)
+
 Inductive trilean : Type :=
   | Yes
   | No
@@ -89,22 +92,7 @@ Definition yes_no_disj :
    | erefl => I
    end. 
 
-
 (** * Exercise *)
-
-Print associative.
-Print nat_ind.
-
-Fixpoint dummy (n : nat) : nat := match n with 0 => 0 | S k => dummy k end.
-Print dummy.
-Check addnS.
-Check eq_trans.
-Check eq_sym.
-Check congr1.
-Locate eq_trans.
-Locate addnS.
-
-Unset Printing Notations.
 
 (* (S m) + n = S (n + m) *)
 
@@ -151,10 +139,6 @@ Definition addA : associative addn
 
 (** * Exercise: *)
 
-Check left_commutative addn.
-Print left_commutative.
-Print eq_trans_r.
-
 Definition addnCA : left_commutative addn :=
 fix ih x y z :=
 match x with
@@ -169,14 +153,13 @@ end.
 
 (* Hint: re-use addnS lemma and some general lemmas about equality *)
 
+End Exercises_Natural.
 
-
-
+Section Exercises_Optional.
 
 (** * ====== Optional exercises (feel free to skip) ====== *)
 
 (** * Exercise (optional) *)
-
 
 (* Я сам написал это решение, но, чёрт побери, я не понимаю, что всё это означает!
    Я понимаю даже, как это работает. Но что означает моё доказательство??? *)
@@ -194,16 +177,126 @@ end.
 
 Definition addnC : commutative addn :=
 fix ih x y :=
-_ .
+match x with
+| O => let oy_y : eq (addn O y) y := erefl in
+       let yo_y := addnOl y in
+       eq_trans_r oy_y yo_y
+| S x' => let ih' := congr1 S (ih x' y) in
+          let sx_y_s_xy := addnSl x' y in
+          let y_sx_syx := addnS y x' in
+          let sx_y_syx := eq_trans sx_y_s_xy ih' in
+          eq_trans_r sx_y_syx y_sx_syx
+end.
 
+End Exercises_Optional.
+
+Section Isomorphisms.
 
 (** * Exercise (optional):
+
 Formalize and prove
  - bool ≡ unit + unit,
  - A + B ≡ {b : bool & if b then A else B},
  - A * B ≡ forall b : bool, if b then A else B,
 where ≡ means "is isomorphic to".
  *)
+
+Reset iso.
+Definition iso (A B : Type) (f : A -> B) (g : B -> A) :=
+and (forall x : B, f (g x) = x)
+    (forall y : A, g (f y) = y).
+Print iso.
+
+(* Пара примеров для тренировки *)
+Reset nat_nat_iso.
+Definition nat_nat_iso : iso (fun x : nat => x) (fun x : nat => x) :=
+conj (fun x => erefl)
+     (fun x => erefl).
+
+Reset a_a_iso.
+Definition a_a_iso : forall (A : Type), iso (fun x : A => x) (fun x : A => x) :=
+fun A => conj (fun x => erefl) (fun x => erefl).
+
+Reset isomorphic.
+Definition isomorphic (A B : Type) := exists (f : A -> B) (g : B -> A), iso f g.
+Print isomorphic.
+
+(* Для тренировки *)
+Definition a_a_isomorphic : forall A : Type, isomorphic A A :=
+fun A => ex_intro _ id (ex_intro _ id (a_a_iso A)).
+
+(* Изоморфизмы bool -> unit + unit ... *)
+Definition buu : bool -> (sum unit unit) :=
+fun b => match b with true => inl tt | false => inr tt end.
+
+(* ... и unit + unit -> bool *)
+Definition uub : (sum unit unit) -> bool :=
+fun uu => match uu with inl tt => true | inr tt => false end.
+
+(* Доказательство изоморфности *)
+Reset b_uu_iso.
+Definition b_uu_iso : iso buu uub :=
+  conj (fun uu => match uu as y return (comp buu uub y = y) with inl tt => erefl | inr tt => erefl end)
+       (fun b => if b as y return (comp uub buu y = y) then erefl else erefl).
+
+(* Основное утверждение bool ≡ unit + unit *)
+Reset b_uu_isomorphic.
+Definition b_uu_isomorphic : isomorphic bool (sum unit unit) := ex_intro _ buu (ex_intro _ uub b_uu_iso).
+
+(* Доказательство A + B ≡ {b : bool & if b then A else B} *)
+
+About sigT.
+Check forall (A B : Type) {b : bool & if b then A else B}.
+
+(* Изоморфизмы A + B -> {b : bool & if b then A else B} ... *)
+
+
+(* Доказательство A * B ≡ forall b : bool, if b then A else B *)
+
+(* Изоморфизм -> ... *)
+Reset abf.
+Definition abf : forall (A B : Type), (prod A B) -> (forall (b : bool), if b then A else B) :=
+fun A B ab => fun b => match b as c return (if c then A else B) with
+                       | true => fst ab
+                       | false => snd ab
+                       end.
+
+(* Изоморфизм <- *)
+Reset fab.
+Definition fab : forall (A B : Type), (forall b : bool, if b then A else B) -> (prod A B) :=
+fun A B f => pair (f true) (f false).
+
+(* Доказательство изоморфности *)
+
+Reset tentt.
+Definition tentt := (fun b => if b as c return (if c then nat else unit) then 10 else tt).
+Print tentt.
+
+Check abf.
+Print abf.
+Check abf (fab (fun b => if b as c return (if c then nat else unit) then 10 else tt)).
+Compute (abf (10, tt)).
+Compute (fab tentt).
+Compute (comp abf fab).
+
+Print nat.
+Print bool.
+Print unit.
+
+(* Definition fab_iso : forall (A B : Type), iso (prod A B ) (forall b : bool, if b then A else B) (abf A B) (fab A B) :=
+conj (fun x => _)
+     _. *)
+
+(* Definition fab_iso : forall (A B : Type), @iso A B (@abf A B) (@fab A B) :=
+conj (fun ab => _)
+     (fun f => _).
+
+Definition fab_iso : forall (A B : Type), and (forall x : (prod A B), fab (abf x) = x) (forall y : (forall b : bool, if b then A else B), abf (fab y) = y) :=
+  fun A B =>
+    conj (fun ab => match ab as ab0 return (fab (abf ab0) = ab0) with (k, l) => erefl end)
+         (fun f => _). *)
+
+End Isomorphisms.
 
 (** * Exercise (optional): *)
 Definition unit_neq_bool:
