@@ -201,100 +201,99 @@ Formalize and prove
 where ≡ means "is isomorphic to".
  *)
 
-Reset iso.
-Definition iso (A B : Type) (f : A -> B) (g : B -> A) :=
-and (forall x : B, f (g x) = x)
-    (forall y : A, g (f y) = y).
-Print iso.
+(* Доказательство bool ≡ unit + unit *)
 
-(* Пара примеров для тренировки *)
-Reset nat_nat_iso.
-Definition nat_nat_iso : iso (fun x : nat => x) (fun x : nat => x) :=
-conj (fun x => erefl)
-     (fun x => erefl).
-
-Reset a_a_iso.
-Definition a_a_iso : forall (A : Type), iso (fun x : A => x) (fun x : A => x) :=
-fun A => conj (fun x => erefl) (fun x => erefl).
-
-Reset isomorphic.
-Definition isomorphic (A B : Type) := exists (f : A -> B) (g : B -> A), iso f g.
-Print isomorphic.
-
-(* Для тренировки *)
-Definition a_a_isomorphic : forall A : Type, isomorphic A A :=
-fun A => ex_intro _ id (ex_intro _ id (a_a_iso A)).
-
-(* Изоморфизмы bool -> unit + unit ... *)
-Definition buu : bool -> (sum unit unit) :=
-fun b => match b with true => inl tt | false => inr tt end.
-
-(* ... и unit + unit -> bool *)
 Definition uub : (sum unit unit) -> bool :=
-fun uu => match uu with inl tt => true | inr tt => false end.
+  fun uu => if uu is inl tt then true else false.
 
-(* Доказательство изоморфности *)
-Reset b_uu_iso.
-Definition b_uu_iso : iso buu uub :=
-  conj (fun uu => match uu as y return (comp buu uub y = y) with inl tt => erefl | inr tt => erefl end)
-       (fun b => if b as y return (comp uub buu y = y) then erefl else erefl).
+Definition buu : bool -> (sum unit unit) :=
+  fun b => if b then inl tt else inr tt.
 
-(* Основное утверждение bool ≡ unit + unit *)
-Reset b_uu_isomorphic.
-Definition b_uu_isomorphic : isomorphic bool (sum unit unit) := ex_intro _ buu (ex_intro _ uub b_uu_iso).
+Compute cancel uub buu.
 
-(* Доказательство A + B ≡ {b : bool & if b then A else B} *)
+Definition b_iso_uu : and (cancel uub buu) (cancel buu uub) :=
+conj
+  (fun uu => match uu as x return (buu (uub x) = x) with inl tt => erefl | inr tt => erefl end)
+  (fun b => match b as x return (uub (buu x) = x) with true => erefl | false => erefl end).
 
-About sigT.
-Check forall (A B : Type) {b : bool & if b then A else B}.
+Variables (A B : Type).
 
-(* Изоморфизмы A + B -> {b : bool & if b then A else B} ... *)
+Axiom f_ext_dep : forall {A} {B : A -> Type},
+  forall (f g : forall x : A, B x),
+  (forall x, f x = g x) -> f = g.
 
+Unset Printing Notations.
 
 (* Доказательство A * B ≡ forall b : bool, if b then A else B *)
 
-(* Изоморфизм -> ... *)
 Reset abf.
-Definition abf : forall (A B : Type), (prod A B) -> (forall (b : bool), if b then A else B) :=
-fun A B ab => fun b => match b as c return (if c then A else B) with
-                       | true => fst ab
-                       | false => snd ab
-                       end.
+Definition abf : (prod A B) -> (forall b : bool, if b then A else B) :=
+fun ab => let (k, l) := ab
+          in fun b => if b as c return (if c return Type then A else B)
+                      then k
+                      else l.
 
-(* Изоморфизм <- *)
 Reset fab.
-Definition fab : forall (A B : Type), (forall b : bool, if b then A else B) -> (prod A B) :=
-fun A B f => pair (f true) (f false).
+Definition fab : (forall b : bool, if b return Type then A else B) -> (prod A B) :=
+fun f => pair (f true) (f false).
 
-(* Доказательство изоморфности *)
+Definition ab_cancel_f : cancel abf fab :=
+fun ab => match ab as x return (fab (abf x) = x) with (k, l) => erefl end.
 
-Reset tentt.
-Definition tentt := (fun b => if b as c return (if c then nat else unit) then 10 else tt).
-Print tentt.
+Reset f_cancel_ab.
+Definition f_cancel_ab : cancel fab abf :=
+fun f => let abf_fab_congr_f : forall b : bool, (abf (fab f)) b = f b :=
+                    fun b => if b as c return ((abf (fab f)) c = f c) then erefl else erefl 
+              in f_ext_dep (abf (fab f)) f abf_fab_congr_f.
 
-Check abf.
-Print abf.
-Check abf (fab (fun b => if b as c return (if c then nat else unit) then 10 else tt)).
-Compute (abf (10, tt)).
-Compute (fab tentt).
-Compute (comp abf fab).
+Definition ab_iso_f: and (cancel abf fab) (cancel fab abf) := conj ab_cancel_f f_cancel_ab.
 
-Print nat.
-Print bool.
-Print unit.
+(* Доказательство A + B ≡ {b : bool & if b then A else B} *)
 
-(* Definition fab_iso : forall (A B : Type), iso (prod A B ) (forall b : bool, if b then A else B) (abf A B) (fab A B) :=
-conj (fun x => _)
-     _. *)
+Compute {b : bool & if b then A else B}.
+Print sigT.
 
-(* Definition fab_iso : forall (A B : Type), @iso A B (@abf A B) (@fab A B) :=
-conj (fun ab => _)
-     (fun f => _).
+Reset sab_sig.
+Definition sab_sig : (sum A B) -> sigT (fun b : bool => if b return Type then A else B) :=
+fun s => match s with 
+         | inl a => existT _ true a
+         | inr b => existT _ false b
+         end.
 
-Definition fab_iso : forall (A B : Type), and (forall x : (prod A B), fab (abf x) = x) (forall y : (forall b : bool, if b then A else B), abf (fab y) = y) :=
-  fun A B =>
-    conj (fun ab => match ab as ab0 return (fab (abf ab0) = ab0) with (k, l) => erefl end)
-         (fun f => _). *)
+Reset sig_sab.
+Definition sig_sab : sigT (fun b : bool => if b return Type then A else B) -> (sum A B) :=
+fun s => match s with
+         | existT true a => inl a
+         | existT false b => inr b
+         end.
+
+Print sab_sig.
+
+Compute fun e => sab_sig (sig_sab e).
+
+Print existT.
+
+Reset sig_cancel_sab.
+Definition sig_cancel_sab : cancel sig_sab sab_sig :=
+fun s => match s as x return (sab_sig (sig_sab x) = x) with
+         | existT true a => erefl (sab_sig (sig_sab (existT _ true a)))
+         | existT false b => erefl (sab_sig (sig_sab (existT _ false b)))
+         end.
+
+Reset sig_sab_K.
+Definition sig_sab_K : cancel sig_sab sab_sig :=
+fun s => let (b, v) as x return (eq (sab_sig (sig_sab x)) x) := s in
+(if b as b' return (forall v' : if b' then A else B, sab_sig (sig_sab (existT _ b' v')) = existT _ b' v')
+      then (fun a : A => erefl)
+      else (fun b : B => erefl)) v.
+
+Print sig_cancel_sab.
+
+Definition sab_cancel_sig : cancel sab_sig sig_sab :=
+fun s => match s as x return (sig_sab (sab_sig x) = x) with
+         | inl a => erefl (sig_sab (sab_sig (inl a)))
+         | inr b => erefl (sig_sab (sab_sig (inr b)))
+         end.
 
 End Isomorphisms.
 
