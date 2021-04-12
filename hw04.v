@@ -283,17 +283,26 @@ fun s => match s as x return (sab_sig (sig_sab x) = x) with
 Reset sig_sab_K.
 Definition sig_sab_K : cancel sig_sab sab_sig :=
 fun s => let (b, v) as x return (eq (sab_sig (sig_sab x)) x) := s in
-(if b as b' return (forall v' : if b' then A else B, sab_sig (sig_sab (existT _ b' v')) = existT _ b' v')
+(if b return (forall v' : if b then A else B, sab_sig (sig_sab (existT _ b v')) = existT _ b v')
       then (fun a : A => erefl)
       else (fun b : B => erefl)) v.
 
 Print sig_cancel_sab.
+
+Reset sig_sab_k.
+Fail Definition sig_sab_k : cancel sig_sab sab_sig :=
+fun '(existT b p) =>
+if b as b0 return sab_sig (sig_sab (existT (fun i : bool => if i then A else B) b p)) = existT _ b p
+  then erefl
+  else erefl.
 
 Definition sab_cancel_sig : cancel sab_sig sig_sab :=
 fun s => match s as x return (sig_sab (sab_sig x) = x) with
          | inl a => erefl (sig_sab (sab_sig (inl a)))
          | inr b => erefl (sig_sab (sab_sig (inr b)))
          end.
+
+Definition sab_sig_iso : and (cancel sab_sig sig_sab) (cancel sig_sab sab_sig) := conj sab_cancel_sig sig_sab_K.
 
 End Isomorphisms.
 
