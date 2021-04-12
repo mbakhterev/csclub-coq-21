@@ -306,7 +306,32 @@ Definition sab_sig_iso : and (cancel sab_sig sig_sab) (cancel sig_sab sab_sig) :
 
 End Isomorphisms.
 
+Section Unequal_Sets.
+
+Reset singular.
+Definition singular (S : Type) := forall (x y : S), eq x y.
+Print singular.
+Compute singular bool.
+
+Reset unit_is_singular.
+Definition unit_is_singular : singular unit := fun x y => match x, y with tt, tt => erefl end.
+Check unit_is_singular.
+
+Check singular bool.
+Compute not (singular bool true false).
+
+Reset bool_is_multiple.
+Definition bool_is_multiple : (singular bool) -> False :=
+fun sb => match (sb true false) in (_ = x) return (if x then True else False) with
+          | erefl => I
+          end.
+
 (** * Exercise (optional): *)
-Definition unit_neq_bool:
-  unit <> bool
-:= replace_with_your_solution_here.
+
+Definition unit_neq_bool: unit <> bool :=
+fun eub =>
+(match eub in (_ = a) return (((singular a) -> False) -> False) with
+ | erefl => fun f => f unit_is_singular
+ end) bool_is_multiple.
+
+End Unequal_Sets.
