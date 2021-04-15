@@ -2,6 +2,7 @@ From mathcomp Require Import ssreflect ssrfun ssrbool eqtype ssrnat div.
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
+
 Unset Printing Notations.
 
 (** Use SSReflect tactics.
@@ -71,7 +72,6 @@ move : (@f False).
 apply.
 exact id.
 Qed.
-
 
 Section Boolean.
 (** * Exercise *)
@@ -206,29 +206,133 @@ Qed.
     to addition and equivalence correspondingly.
     Hint: [Unset Printing Notations.] and [rewrite /definition] are your friends :)
  *)
+
+Lemma s_flips_odd (n : nat) : odd (S n) = negb (odd n).
+Restart.
+elim : n.
+- exact.
+exact.
+Qed.
+
+Lemma rneutral_z (n : nat) : addn n O = n.
+elim : n.
+- exact.
+move => n ih.
+rewrite (addSn n O).
+exact (congr1 S ih).
+Qed.
+
+Lemma rneutral_true (b : bool) : (Equality.op (Equality.class bool_eqType) b true) = b.
+Restart.
+case : b.
+- exact.
+exact.
+Qed.
+   
+Check s_flips_odd.
+Check rneutral_z.
+Check rneutral_true.
+
 Lemma even_add :
   {morph (negb \o odd) : x y / x + y >-> x == y}.
-Proof.
-Admitted.
-
+Restart.
+rewrite /morphism_2 /eq_op /(comp negb odd).
+elim.
+- exact.
+move => n ih.
+case.
+- rewrite (addSn n O).
+  rewrite (rneutral_z n).
+  rewrite (s_flips_odd n).
+  rewrite /(negb (odd O)).
+  rewrite /(odd O).
+  rewrite (rneutral_true (negb (negb (odd n)))).
+  exact.
+have h1 : forall (a b : bool), (Equality.op (Equality.class bool_eqType) (negb a) b) = negb (Equality.op (Equality.class bool_eqType) a b).
+case.
+- exact.
+case.
+- exact.
+exact.
+move => k.
+rewrite (s_flips_odd n).
+rewrite (h1 (negb (odd n)) (negb (odd (S k)))).
+rewrite /(addSn n (S k)).
+exact (congr1 negb (ih (S k))).
+Qed.
 
 (** * Optional exercise *)
+
+Definition LEM (Q : Prop) := or Q (not Q).
+Definition DNE (Q : Prop) := not (not Q) -> Q.
+
+Lemma LEM_implies_DNE : forall Q : Prop, (LEM Q) -> (DNE Q).
+Restart.
+rewrite /LEM /DNE.
+move => q.
+case.
+- exact.
+move => nq nnq.
+apply : (False_ind q (nnq nq)).
+Qed.
+
+Lemma nn_LEM : forall Q, not (not (LEM Q)).
+
+Restart.
+rewrite /LEM.
+move => q.
+move => h1.
+move : (nlem h1).
+move => vq.
+move : (h1 (or_introl vq)).
+exact.
+Qed.
+
+Lemma DNE_implies_LEM : (forall Q, DNE Q) -> (forall P, LEM P).
+Restart.
+move => dne.
+move => p.
+apply : (dne).
+move => h1.
+move : (nn_LEM h1).
+exact.
+Qed.
+
+Admitted.
+Reset DNE_iff_nppp.
+
 Lemma DNE_iff_nppp :
   (forall P, ~ ~ P -> P) <-> (forall P, (~ P -> P) -> P).
-Proof.
-Admitted.
-
+Restart.
+split.
+- move => h1.
+  move => p.
+  move : (DNE_implies_LEM h1).
+  move => h2.
+  move : (h2 p).
+  case.
+  - exact.
+  move => np.
+  move => h3.
+  exact (h3 np).
+move => h1 p.
+apply : LEM_implies_DNE.
+apply : (h1).
+move => h2.
+move : (nn_LEM h2).
+exact.
+Qed.
 
 (** * Optional exercise *)
+
 Lemma leq_add1l p m n :
   m <= n -> m <= p + n.
-Proof.
-Search (_ <= _ + _).
-Admitted.
+Restart.
+move : (leq0n p).
+apply : leq_add.
+Qed.
+
 (** Hint: this lemmas does not require induction, just look for a couple lemmas *)
-
-
-
 
 
 (* ================================================ *)
@@ -239,86 +343,210 @@ More fun with functions, OPTIONAL
 
 Section PropertiesOfFunctions.
 
+Lemma comp_assoc (a b c d: Type) (f : c -> d) (g : b -> c) (h : a -> b) : (f \o g) \o h =1 f \o (g \o h).
+Restart.
+done.
+Qed.
+
+Lemma comp_sym (a b : Type) (f g : a -> b) : f =1 g -> g =1 f.
+Restart.
+rewrite /eqfun.
+move => fg.
+move => x.
+move : (fg x).
+exact.
+Qed.
+
+Lemma comp_assoc_both (a b c d : Type) (g1 g2 : c -> d) (f : b -> c) (g : a -> b) :
+  (g1 \o f) \o g =1 (g2 \o f) \o g -> g1 \o (f \o g) =1 g2 \o (f \o g).
+Restart.
+move => h1.
+set h2 := comp_assoc g1 f g.
+set h3 := comp_assoc g2 f g.
+exact (ftrans (comp_sym h2) (ftrans h1 h3)).
+Qed.
+
 Section SurjectiveEpic.
+
 Context {A B : Type}.
 
 (* https://en.wikipedia.org/wiki/Surjective_function *)
 (** Note: This definition is too strong in Coq's setting, see [epic_surj] below *)
+
 Definition surjective (f : A -> B) :=
   exists g : B -> A, f \o g =1 id.
 
 (** This is a category-theoretical counterpart of surjectivity:
     https://en.wikipedia.org/wiki/Epimorphism *)
+
 Definition epic (f : A -> B) :=
   forall C (g1 g2 : B -> C), g1 \o f =1 g2 \o f -> g1 =1 g2.
 
 (** * Optional exercise *)
+
+
 Lemma surj_epic f : surjective f -> epic f.
-Proof.
-Admitted.
+Restart.
+rewrite /surjective /epic.
+case.
+move => x.
+move => h1.
+move => c.
+move => g1 g2.
+move => eg12f.
+have xx : (x =1 x).
+exact.
+move : (eq_comp eg12f xx).
+move : (comp_assoc g1 f x).
+move => h2 h3.
+move : (comp_assoc g2 f x).
+move => h4.
+move : (comp_sym h2).
+move => h5.
+move : (ftrans h5 h3).
+move => h6.
+move : (ftrans h6 h4).
+have gg1 : g1 =1 g1.
+exact.
+have gg2 : g2 =1 g2.
+exact.
+move : (eq_comp gg1 h1) (eq_comp gg2 h1).
+move => s1 s2.
+move => s3.
+move : (ftrans (comp_sym s1) s3).
+move => s4.
+move : (ftrans s4 s2).
+exact.
+Qed.
 
 (** * Optional exercise *)
+
 Lemma epic_surj f : epic f -> surjective f.
   (** Why is this not provable? *)
 Abort.
 
 End SurjectiveEpic.
 
-
 Section EpicProperties.
+
 Context {A B C : Type}.
 
 (** * Optional exercise *)
+
 Lemma epic_comp (f : B -> C) (g : A -> B) :
   epic f -> epic g -> epic (f \o g).
-Admitted.
+Restart.
+rewrite /epic.
+move => epic_f epic_g D g1 g2.
+set ef := epic_f D.
+set eg := epic_g D.
+move => h1.
+set h2 := ftrans (comp_assoc g1 f g) h1.
+set h3 := (ftrans h2 (comp_sym (comp_assoc g2 f g))).
+set h4 := (eg (g1 \o f) (g2 \o f) h3).
+exact (ef g1 g2 h4).
+Qed.
 
 (** * Optional exercise *)
+
 Lemma comp_epicl (f : B -> C) (g : A -> B) :
   epic (f \o g) -> epic f.
-Admitted.
+Restart.
+rewrite /epic.
+move => epic_fg.
+move => D g1 g2.
+move => h1.
+have gg : g =1 g.
+exact.
+set efg := epic_fg D g1 g2.
+set h2 := (comp_assoc_both (eq_comp h1 gg)).
+exact (efg h2).
+Qed.
 
 (** * Optional exercise *)
+
 Lemma retraction_epic (f : B -> A) (g : A -> B) :
   (f \o g =1 id) -> epic f.
-Admitted.
+Reset.
+rewrite /epic.
+move => h1 D g1 g2 h2.
+have gg : g =1 g.
+exact.
+set h3 := comp_assoc_both (eq_comp h2 gg).
+have g1g1 : g1 =1 g1.
+exact.
+have g2g2 : g2 =1 g2.
+exact.
+have g1fg : g1 \o (f \o g) =1 g1.
+move : (eq_comp g1g1 h1).
+exact.
+have g2fg : g2 \o (f \o g) =1 g2.
+move : (eq_comp g2g2 h1).
+exact.
+exact (ftrans (comp_sym g1fg) (ftrans h3 g2fg)).
+Qed.
 
 End EpicProperties.
-
 
 (** The following section treats some properties of injective functions:
     https://en.wikipedia.org/wiki/Injective_function *)
 
 Section InjectiveMonic.
 
-Context {B C : Type}.
+Context {A B C : Type}.
 
 (** This is a category-theoretical counterpart of injectivity:
     https://en.wikipedia.org/wiki/Monomorphism *)
+
 Definition monic (f : B -> C) :=
   forall A (g1 g2 : A -> B), f \o g1 =1 f \o g2 -> g1 =1 g2.
 
 (** * Optional exercise *)
-Lemma inj_monic f : injective f -> monic f.
-Proof.
-Admitted.
 
+Lemma inj_monic f : injective f -> monic f.
+Restart.
+rewrite /injective /monic /comp /eqfun.
+move => h1 D.
+move => g1 g2.
+move => h2.
+move => x.
+exact (h1 (g1 x) (g2 x) (h2 x)).
+Qed.
 
 (** * Optional exercise *)
+
 Lemma monic_inj f : monic f -> injective f.
-Proof.
-Admitted.
+Restart.
+rewrite /injective /monic /comp /eqfun.
+move => h1.
+move => x1 x2.
+set lx1 : unit -> B := fun _ => x1.
+set lx2 : unit -> B := fun _ => x2.
+set h2 := h1 unit lx1 lx2.
+move => h3.
+have h4 : forall x : unit, f (lx1 x) = f (lx2 x).
+case.
+rewrite /lx1 /lx2.
+exact h3.
+move : (h2 h4).
+apply.
+exact tt.
+Qed.
 
 End InjectiveMonic.
 
-
 Section MonicProperties.
+
 Context {A B C : Type}.
 
 (** * Optional exercise *)
+
 Lemma monic_comp (f : B -> C) (g : A -> B) :
   monic f -> monic g -> monic (f \o g).
-Proof.
+
+Restart.
+rewrite /monic.
+
 Admitted.
 
 (** * Optional exercise *)
