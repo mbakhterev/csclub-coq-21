@@ -3,7 +3,7 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
-Unset Printing Notations.
+(* Unset Printing Notations. *)
 
 (** Use SSReflect tactics.
     DO NOT use automation like [tauto], [intuition], [firstorder], etc.,
@@ -298,7 +298,6 @@ move : (nn_LEM h1).
 exact.
 Qed.
 
-Admitted.
 Reset DNE_iff_nppp.
 
 Lemma DNE_iff_nppp :
@@ -357,13 +356,23 @@ move : (fg x).
 exact.
 Qed.
 
-Lemma comp_assoc_both (a b c d : Type) (g1 g2 : c -> d) (f : b -> c) (g : a -> b) :
-  (g1 \o f) \o g =1 (g2 \o f) \o g -> g1 \o (f \o g) =1 g2 \o (f \o g).
-Restart.
-move => h1.
-set h2 := comp_assoc g1 f g.
-set h3 := comp_assoc g2 f g.
-exact (ftrans (comp_sym h2) (ftrans h1 h3)).
+Lemma comp_assoc_both
+      (a b c d : Type)
+      (g1 g2 : c -> d) (f : b -> c) (h1 h2 : a -> b)
+  : (g1 \o f) \o h1 =1 (g2 \o f) \o h2
+    -> g1 \o (f \o h1) =1 g2 \o (f \o h2).
+Proof.
+  move => k1.
+  move : (comp_assoc g1 f h1) (comp_assoc g2 f h2).
+  move => //.
+Qed.
+
+Lemma comp_assoc_both_r
+      (a b c d : Type)
+      (g1 g2 : c -> d) (f : b -> c) (h1 h2 : a ->b) :
+  g1 \o (f \o h1) =1 g2 \o (f \o h2) -> (g1 \o f) \o h1 =1 (g2 \o f) \o h2.
+Proof.
+  done.
 Qed.
 
 Section SurjectiveEpic.
@@ -383,7 +392,6 @@ Definition epic (f : A -> B) :=
   forall C (g1 g2 : B -> C), g1 \o f =1 g2 \o f -> g1 =1 g2.
 
 (** * Optional exercise *)
-
 
 Lemma surj_epic f : surjective f -> epic f.
 Restart.
@@ -467,7 +475,7 @@ Qed.
 
 Lemma retraction_epic (f : B -> A) (g : A -> B) :
   (f \o g =1 id) -> epic f.
-Reset.
+Restart.
 rewrite /epic.
 move => h1 D g1 g2 h2.
 have gg : g =1 g.
@@ -543,24 +551,64 @@ Context {A B C : Type}.
 
 Lemma monic_comp (f : B -> C) (g : A -> B) :
   monic f -> monic g -> monic (f \o g).
-
 Restart.
 rewrite /monic.
+move => h1 h2.
+move => D.
+move => g1 g2.
+move => h3.
+set h4 := ftrans (comp_sym (comp_assoc f g g1)) h3.
+set h5 := ftrans h4 (comp_assoc f g g2).
+exact (h2 D g1 g2 (h1 D (g \o g1) (g \o g2) h5)).
+Qed.
 
-Admitted.
 
 (** * Optional exercise *)
 Lemma comp_monicr (f : B -> C) (g : A -> B) :
   monic (f \o g) -> monic g.
 Proof.
-Admitted.
-
+  rewrite /monic.
+  have ff : f =1 f.
+  by exact.
+  move => h1 D g1 g2 h2.
+  set h3 := (eq_comp ff h2).
+  set h4 := (@comp_assoc_both_r _ _ _ _ f f g g1 g2 h3).
+  exact (h1 D g1 g2 h4).
+Qed.
+          
 (** * Optional exercise *)
 Lemma section_monic (f : B -> A) (g : A -> B) :
   (g \o f =1 id) -> monic f.
 Proof.
-Admitted.
-
+  rewrite /monic.
+  move => h1.
+  move => D.
+  move => g1 g2.
+  have gg : g =1 g.
+    by done.
+  move => h2.
+  move : (comp_assoc_both_r (eq_comp gg h2)).
+  have gfg1 : (g \o f) \o g1 =1 g1.
+    - have ig1 :id \o g1 =1 g1.
+        by done.
+        have g1g1 : g1 =1 g1.
+        by done.
+        have p1 : (g \o f) \o g1 =1 id \o g1.
+        exact (eq_comp h1 g1g1).
+        by done.
+   have gfg2 : (g \o f) \o g2 =1 g2.
+    - have ig2 :id \o g2 =1 g2.
+        by done.
+        have g2g2 : g2 =1 g2.
+        by done.
+        have p1 : (g \o f) \o g2 =1 id \o g2.
+        exact (eq_comp h1 g2g2).
+          by done.
+move => h3.
+move : (ftrans (comp_sym gfg1) (ftrans h3 gfg2)).
+done.
+Qed.
+       
 End MonicProperties.
 
 End PropertiesOfFunctions.
