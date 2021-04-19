@@ -1,4 +1,3 @@
-
 From mathcomp Require Import ssreflect ssrfun ssrbool eqtype ssrnat seq.
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -102,20 +101,151 @@ Qed.
 
 (* ==== OPTIONAL part: decompiler ==== *)
 
-Definition decompile (p : prog) : option expr :=
-  replace_with_your_solution_here.
+Print option.
+
+Fixpoint decompile_rec (p : prog) (s : seq expr) {struct p} : option expr :=
+  match p, s with
+  | Push n :: r, t => decompile_rec r (Const n :: s)
+  | Mul :: r, n :: m :: t => decompile_rec r (Mult m n :: t)
+  | Sub :: r, n :: m :: t => decompile_rec r (Minus m n :: t)
+  | Add :: r, n :: m :: t => decompile_rec r (Plus m n :: t)
+  | [::], [:: e] => Some e
+  | _, _ => None
+  end.
+
+Arguments decompile_rec p s : simpl nomatch.
+  
+Definition decompile (p : prog) : option expr := decompile_rec p [::].
 
 (** Prove [decompile] cancels [compile]. *)
+
+Lemma decompile_rec_compile (e : expr) (p : prog) (s : seq expr) :
+  decompile_rec (compile e ++ p) s = decompile_rec p (e :: s).
+Proof.
+  move : e p s.
+  elim.
+  - by move => //.
+  - move => em hm en hn p s.
+    move => /=.
+    rewrite -!catA.
+    rewrite hm hn.
+      by exact.
+  - move => em hm en hn p s.
+    move => /=.
+    rewrite -!catA.
+    rewrite hm hn.
+      by exact.
+  - move => em hm en hn p s.
+    move => /=.
+    rewrite -!catA.
+    rewrite hm hn.
+      by exact.
+Qed.
+  
 
 Lemma decompile_compile e :
   decompile (compile e) = Some e.
 Proof.
-Admitted.
+  move : (decompile_rec_compile e [::] [::]).
+  rewrite /= cats0.
+  done.
+Qed.
 
 (* Prove the [compile] function is injective *)
+
+Definition decrec (p : prog) := decompile_rec p [::].
 
 Lemma compile_inj :
   injective compile.
 Proof.
-Admitted.
+  rewrite /injective.
+  case => /=.
+  - move => n e.
+    move => h1.
+    move : (congr1 decompile h1).
+    rewrite decompile_compile /decompile /decompile_rec.
+    by case.      
+  - move => ex ey e.
+    case : e.
+    - move => n h1.
+      move : (congr1 decrec h1).
+      by rewrite /decrec !decompile_rec_compile /(compile (Const n)) //.
+    - move => em en.
+      rewrite /=.
+      move => h1.
+      move : (congr1 decrec h1).
+      rewrite /decrec !decompile_rec_compile /=.
+      case.
+      move => exm eyn.
+      set h2 := (proj2 (pair_equal_spec ex em ey en)) (conj exm eyn).
+        by exact (congr1 (fun '(x, y) => Plus x y) h2).
+    - move => em en.
+      rewrite /=.
+      move => h1.
+      move : (congr1 decrec h1).
+      rewrite /decrec !decompile_rec_compile /=.
+      case.
+        by exact.
+    - move => em en.
+      rewrite /=.
+      move => h1.
+      move : (congr1 decrec h1).
+      rewrite /decrec !decompile_rec_compile /=.
+      case.
+        by exact.  
+  - move => em en.
+    rewrite /=.
+    case.
+    - move => n.
+      rewrite /(compile (Const n)).
+      move => h1.
+      move : (congr1 decrec h1).
+        by rewrite !/decrec !decompile_rec_compile //.
+    - move => n.
+      rewrite /=.
+      move => e h1.
+      move : (congr1 decrec h1).
+        by rewrite !/decrec !decompile_rec_compile //.
+    - move => n.
+      rewrite /=.
+      move => e h1.
+      move : (congr1 decrec h1).
+      rewrite !/decrec !decompile_rec_compile //.
+      case.
+      move => emn ene.
+      set h2 := (proj2 (pair_equal_spec em n en e)) (conj emn ene).
+        by exact (congr1 (fun '(x, y) => Minus x y) h2).
+    - move => n.
+      rewrite /=.
+      move => e h1.
+      move : (congr1 decrec h1).
+        by rewrite !/decrec !decompile_rec_compile //.
 
+  - move => em en.
+    rewrite /=.
+    case.
+    - move => n.
+      rewrite /(compile (Const n)).
+      move => h1.
+      move : (congr1 decrec h1).
+        by rewrite !/decrec !decompile_rec_compile //.
+    - move => n.
+      rewrite /=.
+      move => e h1.
+      move : (congr1 decrec h1).
+        by rewrite !/decrec !decompile_rec_compile //.
+    - move => n.
+      rewrite /=.
+      move => e h1.
+      move : (congr1 decrec h1).
+      by rewrite !/decrec !decompile_rec_compile //.
+    - move => n.
+      rewrite /=.
+      move => e h1.
+      move : (congr1 decrec h1).
+      rewrite !/decrec !decompile_rec_compile //.
+      case.
+      move => emn ene.
+      set h2 := (proj2 (pair_equal_spec em n en e)) (conj emn ene).
+      by exact (congr1 (fun '(x, y) => Mult x y) h2).
+Qed.
