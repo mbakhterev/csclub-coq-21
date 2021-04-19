@@ -155,7 +155,7 @@ Qed.
 
 Definition decrec (p : prog) := decompile_rec p [::].
 
-Lemma compile_inj :
+(* Lemma compile_inj :
   injective compile.
 Proof.
   rewrite /injective.
@@ -248,4 +248,15 @@ Proof.
       move => emn ene.
       set h2 := (proj2 (pair_equal_spec em n en e)) (conj emn ene).
       by exact (congr1 (fun '(x, y) => Mult x y) h2).
+Qed. *)
+
+Lemma compile_inj :
+  injective compile.
+Proof.
+  rewrite /injective.
+  move => ex ey h1.
+  move : (congr1 decompile h1).
+  rewrite !decompile_compile.
+  case.
+  exact.
 Qed.
