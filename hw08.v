@@ -271,13 +271,20 @@ Exercises in this section are not related to canonical structures
 
 Set Printing Notations.
 
+Lemma triple_compb_long (f : bool -> bool) :
+  f \o f \o f =1 f.
+Proof.
+  have h y : f y = true \/ f y = false. by case : (f y); intuition.
+  by case : (h true) (h false); case => p; case => q; case; rewrite /comp ?p ?q ?p ?q.
+Qed.
+
 Lemma triple_compb (f : bool -> bool) :
   f \o f \o f =1 f.
 Proof.
-  rewrite /comp.
-  have h1 (y : bool) : f y = true \/ f y = false.
-    by case : (f y); intuition.
-  by case : (h1 true) (h1 false); case => h2; case => h3; case; rewrite ?h2 ?h3 ?h2.
+  by rewrite /comp; case; case E : (f true); case D : (f false); rewrite ?E ?D. 
+Qed.
+    
+  
     
 (** Hint: use [case <identifier>: <term>] tactic
           to pattern match on [<term>] and keep the result
@@ -307,28 +314,45 @@ Hypothesis U2 : left_id e2 f2 * right_id e2 f2.
 
 Hypothesis I : interchange f1 f2.
 
+Compute interchange f1 f2.
+
+Compute left_id e1 f1.
+
+Compute right_id e1 f1.
+
 Lemma units_same :
   e1 = e2.
 Proof.
-Admitted.
+  rewrite -[e1] U1 -{1}[e1] U2 -{2}[e1] (snd U2) I !U1 U2. done.
+Qed.
+
+Locate "=2".
 
 Lemma operations_equal :
   f1 =2 f2.
 Proof.
-Admitted.
+  move => x y; rewrite - {1}[x] (snd U2) -{1}[y] U2 I -units_same !U1.
+  done.
+Qed.
 
 Lemma I1 : interchange f1 f1.
 Proof.
-Admitted.
+  move => x y z w; rewrite operations_equal -I -![f2 _ _]operations_equal.
+  done.
+Qed.
 
 Lemma operations_comm :
   commutative f1.
 Proof.
-Admitted.
-
+  move => x y.
+  rewrite operations_equal -{1}[y](snd U1) -{1}[x]U1 -I units_same !U2.
+  done.
+Qed.
+  
 Lemma operations_assoc :
   associative f1.
 Proof.
-Admitted.
+  move => x y z. rewrite -{2}[z]U1 I1 U1. done.
+Qed.
 
 End EckmannHilton.
