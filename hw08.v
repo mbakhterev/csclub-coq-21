@@ -269,10 +269,16 @@ Exercises in this section are not related to canonical structures
 
 (** An optional exercise with a short and a bit tricky one-line solution (less than 70 characters): *)
 
+Set Printing Notations.
+
 Lemma triple_compb (f : bool -> bool) :
   f \o f \o f =1 f.
 Proof.
-Admitted.
+  rewrite /comp.
+  have h1 (y : bool) : f y = true \/ f y = false.
+    by case : (f y); intuition.
+  by case : (h1 true) (h1 false); case => h2; case => h3; case; rewrite ?h2 ?h3 ?h2.
+    
 (** Hint: use [case <identifier>: <term>] tactic
           to pattern match on [<term>] and keep the result
           as an equation <identifier> in the context.
