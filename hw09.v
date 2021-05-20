@@ -3,7 +3,6 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
-
 Axiom replace_with_your_solution_here : forall {A : Type}, A.
 
 Section InsertionSort.
@@ -121,7 +120,20 @@ Lemma path_sorted a l : path leT a l -> sorted leT l.
 Proof.
   elim : l.
   - by rewrite /=.
-    - move => a l ih.
+  - move => e l ih /=; case/andP; by done.
+Qed.
+
+Lemma insert_in_sorted e l :
+  sorted leT (e :: l) -> insert e l = e :: l.
+Proof.
+  case : l.
+  - by rewrite /=.
+  - move => a l.
+    rewrite /sorted /=.
+    case/andP => h1 h2.
+    rewrite h1.
+    by done.
+Qed.    
 
 Lemma sort_of_sorted l : sorted leT l -> (sort l) = l.
 Proof.
@@ -129,17 +141,137 @@ Proof.
   - by rewrite /=.
   - move => a l ih.
     rewrite /=.
+    move => h1.
+    set h2 := path_sorted h1.
+    rewrite (ih h2).
+    have h3 : sorted leT (a :: l).
+    by rewrite /sorted.
+    by exact (insert_in_sorted h3).
+Qed.
+
+(*Lemma insert_filtered a l (p : T -> bool):
+  p a -> insert a (filter p l) = filter p (insert a l).
+Proof.
+  elim : l.
+  - move => pa. by rewrite /= pa.
+  - move => e l ih pa.
+    rewrite /=.
+    case : ifP => pe.
+  - rewrite /=.
+    case : ifP => le_a_e.
+    rewrite /filter pa pe.
+      by done.
+  - move.
+    rewrite {2}/filter pe (ih pa). by done.
+  - case : ifP => le_a_e.
+    rewrite {2}/filter pa pe.
+Abort.*)
+
+Lemma path_le a e l : leT e a -> path leT a l -> path leT e l.
+Proof.
+  case l.
+  - by rewrite /=.
+  - move => x xs /= le_e_a.
+    case/andP => le_a_x.
+    move : (leT_tr le_e_a le_a_x) => le_e_x p_a_x.
+    by rewrite le_e_x p_a_x.
+Qed.
+
+Lemma insert_filtered_path (p : T -> bool) e l :
+  p e ->
+  path leT e l ->
+  insert e (filter p l) = e :: (filter p l).
+Proof.
+  move : e.
+  elim : l.
+  - by rewrite /=.
+  - move => a l ih e pe /=.
+    case/andP => le_e_a p_a_l.
+  - case : ifP => pa.
+    by rewrite /= le_e_a.
+  - set p_e_l := path_le le_e_a p_a_l.
+    by rewrite (ih e pe p_e_l).
+Qed.
+
+Lemma filter_path p e l:
+  path leT e l -> path leT e (filter p l).
+Proof.
+  move : e.
+  elim : l.
+  - by rewrite /=.
+  - move => a l ih e.
+    rewrite /=.
+    case/andP => le_e_a p_a_l.
+    set p_e_l := path_le le_e_a p_a_l.
+    case : ifP => pa.
+  - rewrite /=.
+    set h1 := (ih a p_a_l).
+    by rewrite le_e_a h1.
+  - by exact (ih e (path_le le_e_a p_a_l)).
+Qed.
     
-Lemma filter_sort p s :
-  filter p (sort s) = sort (filter p s).
+Lemma insert_filtered (p : T -> bool) a l :      
+  p a
+  -> (sorted leT l)
+  -> insert a (filter p l) = filter p (insert a l).
+Proof.
+  move : a.
+  elim : l => a.
+  - move => pa /=. by rewrite pa.
+  - move => l ih e pe.
+    rewrite /=.
+    move => path_al.
+    case : ifP => pa /=.
+  - case : ifP => le_e_a.
+  - by rewrite /= pe pa.
+  - rewrite {2}/filter pa.
+    by rewrite (ih e pe (path_sorted path_al)).
+  - case : ifP => le_e_a.
+  - set h1 := (path_le le_e_a path_al).
+    set h2 := (@filter_path p e l h1).
+    set h3 := (@insert_filtered_path p e l pe h1).
+    by rewrite h3 /= pe pa.
+  - rewrite /= pa.
+    set h1 := (@path_sorted a l path_al).
+    by rewrite (ih e pe h1).
+Qed.
+
+Lemma mis_insert_filtered (p : T -> bool) a l:
+  p a = false
+  -> sorted leT l
+  -> filter p (insert a l) = filter p l.
+Proof.
+  move : a.
+  elim : l => e.
+  - move => npe.
+      by rewrite /= npe.
+  - move => l ih a npa.
+    rewrite /sorted /= => p_e_l.
+    case : ifP => le_a_e.
+  - by rewrite /= npa.
+  - rewrite /=.
+    case : ifP => pe.
+    by rewrite (ih a npa (path_sorted p_e_l)).
+  - by rewrite (ih a npa (path_sorted p_e_l)).
+Qed.
+    
+Lemma filter_sort p l :
+  filter p (sort l) = sort (filter p l).
 Proof.
   Show.
-  elim : s.
+  elim : l.
   - by done.
-  move => t l IH.
-  rewrite /=.
+  - move => a l ih /=.
+    case : ifP.
+    rewrite /= => pa.
+    set h0 := sort_sorted l.
+    set h1 := @insert_filtered p a (sort l) pa h0.
+    by rewrite -h1 ih.
+  - move => npa.
+    set h1 := @mis_insert_filtered p a (sort l) npa (sort_sorted l).
+    by rewrite h1 ih.
+Qed.
     
-
 (** Hint: you will probably need to introduce a number of helper lemmas *)
 
 Set Printing Notations.
