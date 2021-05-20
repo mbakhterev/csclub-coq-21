@@ -27,88 +27,108 @@ Fixpoint sort s : seq T :=
 Hypothesis leT_total : total leT.
 Hypothesis leT_tr : transitive leT.
 
+Lemma insert_path z e s :
+  leT z e ->
+  path leT z s ->
+  path leT z (insert e s).
+Proof.
+move: z.
+elim: s=> [/=| x1 s IHs] z.
+- by move => ->.
+move=> z_le_e.
+move=> /=.
+case/andP=> z_le_x1 path_x1_s.
+case: ifP.
+- by rewrite /= z_le_e path_x1_s => ->.
+move=> /= e_gt_x1.
+rewrite z_le_x1.
+have:= leT_total e x1.
+rewrite {}e_gt_x1 /= => x1_le_e.
+exact: IHs.
+Qed.
+
+Lemma insert_sorted e s :        
+  sorted leT s ->
+  sorted leT (insert e s).
+Proof.
+rewrite /sorted.
+case: s=> // x s.
+move=> /=.
+case: ifP; first by move=> /= ->->.
+move=> e_gt_x.
+apply: insert_path.
+have:= leT_total e x.
+by rewrite e_gt_x /= => ->.
+Qed.
+
+Lemma sort_sorted s : sorted leT (sort s).
+Proof.
+  rewrite /sorted.
+  elim : s.
+  - by rewrite //.
+  - move => a l IH.
+    move => //=.
+    move : (@insert_sorted a (sort l) IH).
+    rewrite /sorted.
+    done.
+Qed.
+
 (** * Exercise *)
 
-Set Printing Notations.
-
-Lemma let_aa (a : T) : leT a a.
-Proof.
-  move : (leT_total a a).
-  case/orP; done.
-Qed.
-
-Lemma insert_inserts (e : T) (s : seq T) : insert e s = nil -> False.
-  case : s; rewrite /insert.
-  - by done.
-  - move => a; case (leT e a); by done.
-Qed.
-
-Lemma insert_less (e : T) (l : seq T) :
-  forall (a : T) (s : seq T), insert e l = a :: s -> leT a e.
-Proof.
-  case : l.
-  - rewrite /insert => a s; case => h1 h2; rewrite h1.
-      by exact (let_aa a).
-  - move => x xs y ys; rewrite /insert.
-    case h : (leT e x); case => h1 h2; rewrite -h1.
-  - by exact (let_aa e).
-  - move : (leT_total e x); by rewrite h //.
-Qed.
-
-Lemma sort_nil (s : seq T) : sort s = nil -> s = nil.
-  case : s.
-  - by done.
-  - by move => a l; rewrite /sort => h; move : (insert_inserts h).
-Qed.
-
-About head.
-Compute head 4 (cons 2 (cons 5 nil)).
-Search (seq ?T -> ?T).
-Print head.
-
-Lemma sort_commute (l : seq T) :
-  if (sort l) is s :: ss then sort (s :: ss) = s :: sort ss else sort [::] = [::].
+Lemma path_let e x l : leT e x -> path leT x l -> path leT e l.
 Proof.
   elim : l.
-  - by rewrite //.
-    - move => a l IH.!
+  - by move => /=.
+  - move => a l ih /= le_e_x.
+    case/andP.
+    move => le_x_a.
+    move : (leT_tr le_e_x le_x_a).
+    move => h1 h2.
+    rewrite h1 h2.
+    done.
+Qed.
+    
 
-Lemma sort_some (s : seq T) :
-  forall (e : T) (l : seq T), sort s = e :: l -> all (leT e) l.
+Lemma filter_keeps_sorted : forall l p x,
+    sorted leT (x :: l) ->
+    sorted leT (x :: filter p l).
 Proof.
-  elim : s.
-  - move => e l; rewrite /sort. by case.
-  - move => e l IH.
-    move => x xs.
-    rewrite /sort.
-    case l.
-Abort.
-Admitted.
-
-(*Lemma sort_some (s : seq T) :
-  forall (e : T) (l : seq T), sort s = e :: l -> all (leT e) l.
-Proof.
-  case : s.
-  by rewrite /sort.
-  move => a l.
-  case l.
-  rewrite /sort /insert.
-  move => e s.
-  case.
-  move => h1 h2.
-  by rewrite -h2.
-  move => x.
   elim.
-  move => e xs.
-  rewrite /sort /insert.
-  case h1 : (leT a x); case; move => h2 h3; rewrite -h3 -h2 /all.
-  by rewrite h1 //.
-  move : (leT_total a x); case/orP.
-  by rewrite h1.
-  move => h4.
-  by rewrite h4.
-  move => y xs IH e es.
-  rewrite /sort. *)
+  - by rewrite /=.
+  - move => e l IH p x /=.
+    case : ifP.
+    set ih := (IH p e).
+    move => h1.
+    case/andP.
+    move => le_x_e h2.
+    have h3 : sorted leT (e :: l).
+      by rewrite /sorted.
+      move : (ih h3).
+      rewrite /sorted /= le_x_e.
+        by done.
+  - move => h1.
+    case/andP.
+    move => le_x_e h2.
+    set ih := IH p x.
+    have h3 : sorted leT (x :: l).
+    rewrite /=.
+      by exact (path_let le_x_e h2).
+      move : (ih h3) => /=.
+      done.
+Qed.
+
+Lemma path_sorted a l : path leT a l -> sorted leT l.
+Proof.
+  elim : l.
+  - by rewrite /=.
+    - move => a l ih.
+
+Lemma sort_of_sorted l : sorted leT l -> (sort l) = l.
+Proof.
+  elim : l.
+  - by rewrite /=.
+  - move => a l ih.
+    rewrite /=.
     
 Lemma filter_sort p s :
   filter p (sort s) = sort (filter p s).
