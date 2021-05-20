@@ -28,11 +28,101 @@ Hypothesis leT_total : total leT.
 Hypothesis leT_tr : transitive leT.
 
 (** * Exercise *)
+
+Set Printing Notations.
+
+Lemma let_aa (a : T) : leT a a.
+Proof.
+  move : (leT_total a a).
+  case/orP; done.
+Qed.
+
+Lemma insert_inserts (e : T) (s : seq T) : insert e s = nil -> False.
+  case : s; rewrite /insert.
+  - by done.
+  - move => a; case (leT e a); by done.
+Qed.
+
+Lemma insert_less (e : T) (l : seq T) :
+  forall (a : T) (s : seq T), insert e l = a :: s -> leT a e.
+Proof.
+  case : l.
+  - rewrite /insert => a s; case => h1 h2; rewrite h1.
+      by exact (let_aa a).
+  - move => x xs y ys; rewrite /insert.
+    case h : (leT e x); case => h1 h2; rewrite -h1.
+  - by exact (let_aa e).
+  - move : (leT_total e x); by rewrite h //.
+Qed.
+
+Lemma sort_nil (s : seq T) : sort s = nil -> s = nil.
+  case : s.
+  - by done.
+  - by move => a l; rewrite /sort => h; move : (insert_inserts h).
+Qed.
+
+About head.
+Compute head 4 (cons 2 (cons 5 nil)).
+Search (seq ?T -> ?T).
+Print head.
+
+Lemma sort_commute (l : seq T) :
+  if (sort l) is s :: ss then sort (s :: ss) = s :: sort ss else sort [::] = [::].
+Proof.
+  elim : l.
+  - by rewrite //.
+    - move => a l IH.!
+
+Lemma sort_some (s : seq T) :
+  forall (e : T) (l : seq T), sort s = e :: l -> all (leT e) l.
+Proof.
+  elim : s.
+  - move => e l; rewrite /sort. by case.
+  - move => e l IH.
+    move => x xs.
+    rewrite /sort.
+    case l.
+Abort.
+Admitted.
+
+(*Lemma sort_some (s : seq T) :
+  forall (e : T) (l : seq T), sort s = e :: l -> all (leT e) l.
+Proof.
+  case : s.
+  by rewrite /sort.
+  move => a l.
+  case l.
+  rewrite /sort /insert.
+  move => e s.
+  case.
+  move => h1 h2.
+  by rewrite -h2.
+  move => x.
+  elim.
+  move => e xs.
+  rewrite /sort /insert.
+  case h1 : (leT a x); case; move => h2 h3; rewrite -h3 -h2 /all.
+  by rewrite h1 //.
+  move : (leT_total a x); case/orP.
+  by rewrite h1.
+  move => h4.
+  by rewrite h4.
+  move => y xs IH e es.
+  rewrite /sort. *)
+    
 Lemma filter_sort p s :
   filter p (sort s) = sort (filter p s).
 Proof.
-Admitted.
+  Show.
+  elim : s.
+  - by done.
+  move => t l IH.
+  rewrite /=.
+    
+
 (** Hint: you will probably need to introduce a number of helper lemmas *)
+
+Set Printing Notations.
 
 End InsertionSort.
 
