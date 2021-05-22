@@ -149,24 +149,6 @@ Proof.
     by exact (insert_in_sorted h3).
 Qed.
 
-(*Lemma insert_filtered a l (p : T -> bool):
-  p a -> insert a (filter p l) = filter p (insert a l).
-Proof.
-  elim : l.
-  - move => pa. by rewrite /= pa.
-  - move => e l ih pa.
-    rewrite /=.
-    case : ifP => pe.
-  - rewrite /=.
-    case : ifP => le_a_e.
-    rewrite /filter pa pe.
-      by done.
-  - move.
-    rewrite {2}/filter pe (ih pa). by done.
-  - case : ifP => le_a_e.
-    rewrite {2}/filter pa pe.
-Abort.*)
-
 Lemma path_le a e l : leT e a -> path leT a l -> path leT e l.
 Proof.
   case l.
@@ -274,11 +256,7 @@ Qed.
     
 (** Hint: you will probably need to introduce a number of helper lemmas *)
 
-Set Printing Notations.
-
 End InsertionSort.
-
-
 
 Section AccPredicate.
 
@@ -292,7 +270,9 @@ Section AdditionViaFix_F.
 (* First, let's redefine the addition on natural numbers
    using the `Fix_F` combinator: *)
 About Fix_F.
+  
 Print Fix_F.
+
 (* notice we do recursion on the `a : Acc R x` argument *)
 
 (* To define addition, we first need to choose the relation `R`
@@ -303,6 +283,7 @@ Definition R m n := n = m.+1.
 
 (* This definition has to be transparent, otherwise
    evaluation will get stuck *)
+
 Definition esucc_inj : injective succn. by move=> n m []. Defined.
 
 (* Every natural number is accessible w.r.t. R defined above *)
@@ -319,6 +300,8 @@ relation: https://en.wikipedia.org/wiki/Well-founded_relation.
 *)
 Print well_founded.
 
+About Fix_F.
+
 (* Addition via `Fix_F` *)
 Definition addn_f : nat -> nat -> nat :=
   fun m =>
@@ -333,6 +316,8 @@ Definition addn_f : nat -> nat -> nat :=
            m
            (acc m).
 
+Compute addn_f 4.
+
 (* This would get stuck if esucc *)
 Check erefl : addn_f 2 4 = 6.
 
@@ -342,22 +327,37 @@ Proof. by elim=> // m IHm n; rewrite addSn IHm. Qed.
 
 End AdditionViaFix_F.
 
-
-
 (** Exercise: implement multiplication on natural numbers using `Fix_F`:
     no explicit recursion, Program Fixpoint or things like that! *)
+
 Section MultiplicationViaFix_F.
 
 Definition muln_f : nat -> nat -> nat :=
-  replace_with_your_solution_here.
+  fun m n =>
+    @Fix_F nat
+           R
+           (fun => nat)
+           (fun k rec =>
+              match k return (_ = k -> nat) with
+              | (S k') =>
+                fun (eq : k = (S k')) => addn n (rec k' eq)
+              | O => fun => 0
+              end erefl)
+           m
+           (acc m).
+
+Compute muln_f 11.
 
 (* this should not fail *)
-Fail Check erefl : muln_f 21 2 = 42.
+Check erefl : muln_f 21 2 = 42.
 
 Lemma muln_equiv_muln_f :
   muln =2 muln_f.
 Proof.
-Admitted.
+  elim => // m ih n.
+  rewrite mulSn (ih n) /muln_f /=.
+  done.
+Qed.
 
 End MultiplicationViaFix_F.
 
